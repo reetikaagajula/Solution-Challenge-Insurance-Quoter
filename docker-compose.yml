@@ -1,16 +1,12 @@
-version: '3.8'
-
 services:
-  backend:
-    build: ./backend
-    ports:
-      - "8000:5000"
-    volumes:
-      - ./backend:/app
-
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
-    volumes:
-      - ./frontend:/app
+      - "3000:80"  # map localhost:3000 to Nginx container port 80
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
