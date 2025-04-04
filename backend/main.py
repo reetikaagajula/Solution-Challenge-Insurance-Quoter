@@ -30,6 +30,66 @@ def get_mock_quote():
     except Exception as e:
         print("Quote error:", e)
         return jsonify({ "error": str(e) }), 500
+    
+    #Gemini handler
+@app.route("/geminiFunction", methods=["POST"])
+def gemini_function():
+    data = request.get_json()
+    message = data.get("message", "")
+
+    if not message:
+        return jsonify({"message": "No input received."}), 400
+
+    try:
+        vertexai.init(project="pelagic-quanta-455716-s2", location="us-central1")
+        model = GenerativeModel("gemini-pro")
+
+        prompt = f"""
+        Extract the following details from the text related to a life insurance query:
+        - Age (integer)
+        - Smoker (yes/no)
+        - Coverage amount (in USD)
+        - Term duration (in years)
+
+        If the message is unrelated to insurance, return:
+        {{
+          "message": "Sorry, I had trouble understanding your insurance request. Could you please rephrase?"
+        }}
+
+        Input: {message}
+
+        Output JSON format:
+        {{
+          "message": "<summary or explanation>",
+          "age": <number>,
+          "smoker": <true/false>,
+          "coverage": <number>,
+          "term_years": <number>
+        }}
+        """
+
+        result = model.generate_content(prompt)
+        response_text = result.text
+
+        try:
+            parsed = json.loads(response_text)
+        except json.JSONDecodeError:
+            return jsonify({
+                "message": "Sorry, I had trouble understanding your insurance request. Could you please rephrase?"
+            }), 200
+
+        required = ["age", "smoker", "coverage", "term_years"]
+        if not all(k in parsed and parsed[k] not in [None, ""] for k in required):
+            return jsonify({
+                "message": "Sorry, I had trouble understanding your insurance request. Could you please rephrase?"
+            }), 200
+
+        return jsonify(parsed), 200
+
+    except Exception as e:
+        print("Gemini error:", e)
+        return jsonify({ "message": "Internal error while processing your request." }), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
